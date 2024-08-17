@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Busca</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 90%;
+            overflow-x: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007BFF;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px 0 0 5px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #search-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-block {
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fff;
+        }
+
+        .result-block h3 {
+            margin-top: 0;
+            color: #007BFF;
+        }
+
+        .data-item {
+            margin-bottom: 10px;
+        }
+
+        .data-item span {
+            font-weight: bold;
+            display: inline-block;
+            width: 150px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-top: 10px;
+            text-decoration: underline;
+        }
+
+        #clear-results {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: none;
+        }
+
+        #clear-results:hover {
+            background-color: #c82333;
+        }
+
+        #loading-indicator {
+            margin-top: 10px;
+            display: none;
+            color: #007BFF;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Busca de Protocolo</h1>
+        <label for="protocol-number">Número do Protocolo:</label>
+        <div class="input-group">
+            <input type="text" id="protocol-number" placeholder="Digite o número do protocolo" aria-label="Número do Protocolo" autofocus>
+            <button onclick="searchProtocol()">Buscar</button>
+        </div>
+        <p id="loading-indicator">Carregando...</p>
+        <button id="clear-results" onclick="clearResults()">Limpar Resultados</button>
+
+        <div id="search-result"></div>
+    </div>
+
+    <script>
+        document.getElementById('protocol-number').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                searchProtocol();
+            }
+        });
+
+        function searchProtocol() {
+            const protocolNumber = document.getElementById('protocol-number').value.trim();
+            if (!protocolNumber) {
+                alert('Por favor, digite o número do protocolo.');
+                return;
+            }
+
+            if (!protocolNumber.match(/^\d+$/)) {
+                alert('Por favor, insira um número de protocolo válido.');
+                return;
+            }
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.directory = true;
+            input.multiple = true;
+            input.accept = '.json';
+
+            input.addEventListener('change', async (event) => {
+                const files = event.target.files;
+                let results = [];
+                document.getElementById('loading-indicator').style.display = 'block';
+
+                try {
+                    const filePromises = Array.from(files).map(file => {
+                        if (file.name.endsWith('.json')) {
+                            return file.text().then(content => {
+                                const jsonData = JSON.parse(content);
+                                if (jsonData.protocolo && jsonData.protocolo === protocolNumber) {
+                                    return jsonData;
+                                }
+                            }).catch(error => null);
+                        }
+                    });
+
+                    results = (await Promise.all(filePromises)).filter(result => result);
+
+                    if (results.length > 0) {
+                        displayResults(results);
+                    } else {
+                        alert('Protocolo não encontrado.');
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar os dados:', error);
+                    document.getElementById('search-result').innerHTML = '<p>Erro ao carregar os dados.</p>';
+                    document.getElementById('search-result').style.display = 'block';
+                } finally {
+                    document.getElementById('loading-indicator').style.display = 'none';
+                }
+            });
+
+            input.click();
+        }
+
+        function displayResults(dataArray) {
+            const searchResult = document.getElementById('search-result');
+            searchResult.innerHTML = '';
+
+            dataArray.forEach(data => {
+                const resultBlock = document.createElement('div');
+                resultBlock.className = 'result-block';
+
+                const generalInfo = `
+                    <div class="data-item"><span>Protocolo:</span> ${data.protocolo || data.prontuario}</div>
+                    <div class="data-item"><span>Nome:</span> ${data.nome}</div>
+                    <div class="data-item"><span>Data de Nascimento:</span> ${data.data_nasc || data.data_nascimento}</div>
+                    <div class="data-item"><span>Data da Análise/Consulta:</span> ${data.data_analise || data.data_consulta || data.data_atendimento}</div>
+                `;
+
+                let otherInfo = '';
+                for (const key in data) {
+                    if (!['protocolo', 'prontuario', 'nome', 'data_nasc', 'data_nascimento', 'data_analise', 'data_consulta', 'data_atendimento'].includes(key)) {
+                        otherInfo += `<div class="data-item"><span>${key.replace(/_/g, ' ')}:</span> ${data[key]}</div>`;
+                    }
+                }
+
+                resultBlock.innerHTML = `
+                    <h3>Informações Gerais</h3>
+                    ${generalInfo}
+                    <div class="section-title">Outras Informações</div>
+                    ${otherInfo}
+                `;
+
+                searchResult.appendChild(resultBlock);
+            });
+
+            document.getElementById('search-result').style.display = 'block';
+            document.getElementById('clear-results').style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('search-result').innerHTML = '';
+            document.getElementById('search-result').style.display = 'none';
+            document.getElementById('clear-results').style.display = 'none';
+            document.getElementById('protocol-number').value = '';
+            document.getElementById('protocol-number').focus();
+        }
+    </script>
+</body>
+</html>
